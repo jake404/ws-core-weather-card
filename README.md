@@ -1,6 +1,6 @@
 # Weather Station Core Card
 
-Version 0.4.5
+Version 0.4.6
 
 A dependency-free Home Assistant Lovelace card for MQTT-published Weather Station Core insight sensors. Calculations can live in Node-RED; the card only renders the selected sensor.
 

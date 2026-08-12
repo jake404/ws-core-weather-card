@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.5';
+const WS_CORE_CARD_VERSION = '0.4.6';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -12,7 +12,7 @@ class WsCoreCard extends HTMLElement {
   getCardSize() { return 2; }
   getGridOptions() { return { auto_height: true, columns: 6, min_columns: 3, max_columns: 12 }; }
 
-  static getConfigElement() { return document.createElement('ws-core-card-editor'); }
+  static getConfigElement() { return document.createElement('ws-core-card-editor-v2'); }
   static getStubConfig() { return { type: 'custom:ws-core-card', entity: 'sensor.weather_station_core_rain_outlook' }; }
   esc(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
 
@@ -30,7 +30,7 @@ class WsCoreCard extends HTMLElement {
       <div class="label">${icon.startsWith('mdi:') ? `<ha-icon class="icon" icon="${this.esc(icon)}"></ha-icon>` : icon ? `<span class="icon">${this.esc(icon)}</span>` : ''}${this.esc(title)}</div>
       <div class="state">${this.esc(unavailable ? 'Unavailable' : state.state)}</div>
       ${explanation ? `<div class="explanation">${this.esc(explanation)}</div>` : ''}
-      ${confidence !== undefined && confidence !== null ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
+      ${confidence !== undefined && confidence !== null && !this.config.entity.includes('data_confidence') ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
     </div></ha-card>`;
     this.shadowRoot.querySelector('ha-card').addEventListener('click', () => this.handleTap());
   }
@@ -92,9 +92,7 @@ else {
   for (const name of Object.getOwnPropertyNames(WsCoreCard.prototype)) if (name !== 'constructor') Object.defineProperty(existingCard.prototype, name, Object.getOwnPropertyDescriptor(WsCoreCard.prototype, name));
   document.querySelectorAll('ws-core-card').forEach(card => card.render?.());
 }
-const existingEditor = customElements.get('ws-core-card-editor');
-if (!existingEditor) customElements.define('ws-core-card-editor', WsCoreCardEditor);
-else for (const name of Object.getOwnPropertyNames(WsCoreCardEditor.prototype)) if (name !== 'constructor') Object.defineProperty(existingEditor.prototype, name, Object.getOwnPropertyDescriptor(WsCoreCardEditor.prototype, name));
+if (!customElements.get('ws-core-card-editor-v2')) customElements.define('ws-core-card-editor-v2', WsCoreCardEditor);
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Insight Card', description: `Generic MQTT insight sensor card (v${WS_CORE_CARD_VERSION}).` });
 console.info(`[Weather Station Core Card] loaded v${WS_CORE_CARD_VERSION}`);
