@@ -1,0 +1,6 @@
+{
+  "name": "Weather Station Core Card",
+  "content_in_root": true,
+  "filename": "weather-card.js",
+  "render_readme": true
+}
