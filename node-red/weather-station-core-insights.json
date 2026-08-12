@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ws-core-insights",
+    "type": "tab",
+    "label": "Weather Station Core insights",
+    "disabled": false,
+    "info": "Publishes interpreted Weather Station Core sensors through MQTT discovery."
+  },
+  {
+    "id": "ws-core-insights-in",
+    "type": "link in",
+    "z": "ws-core-insights",
+    "name": "Weather Station Core inputs",
+    "links": [],
+    "x": 120,
+    "y": 100,
+    "wires": [["ws-core-insights-publish"]]
+  },
+  {
+    "id": "ws-core-insights-publish",
+    "type": "function",
+    "z": "ws-core-insights",
+    "name": "Build insight sensors + discovery",
+    "func": "// Feed this node a payload with one object per insight key.\n// Each object should contain state, explanation, severity, confidence, and optionally icon.\n// Example: msg.payload.rain_outlook = { state: 'Rain likely soon', explanation: '82% likelihood in 60 minutes', severity: 'rain', confidence: 88 }\nconst input = msg.payload || {};\nconst device = { identifiers: ['weather_station_core'], name: 'Weather Station Core', manufacturer: 'Weather Station Core', model: 'Interpreted insights', sw_version: '0.4.0' };\nconst base = 'weather_station_core/insights/';\nconst insights = {\n  heating_demand: { name: 'Heating demand', icon: 'mdi:home-thermometer' },\n  rain_outlook: { name: 'Rain outlook', icon: 'mdi:weather-rainy' },\n  data_confidence: { name: 'Data confidence', icon: 'mdi:check-decagram' },\n  comfort: { name: 'Comfort and condensation', icon: 'mdi:water-percent' },\n  frost_risk: { name: 'Frost risk', icon: 'mdi:snowflake-alert' },\n  wind_chill: { name: 'Wind chill exposure', icon: 'mdi:weather-windy' },\n  drying_window: { name: 'Drying window', icon: 'mdi:weather-sunny' }\n};\nconst messages = [];\nObject.entries(insights).forEach(([key, definition]) => {\n  const value = input[key] || {};\n  const stateTopic = `${base}${key}/state`;\n  const configTopic = `homeassistant/sensor/weather_station_core_${key}/config`;\n  messages.push({ topic: configTopic, retain: true, payload: JSON.stringify({ name: definition.name, unique_id: `weather_station_core_${key}`, object_id: `weather_station_core_${key}`, state_topic: stateTopic, value_template: '{{ value_json.state }}', json_attributes_topic: stateTopic, icon: value.icon || definition.icon, device }) });\n  messages.push({ topic: stateTopic, retain: true, payload: JSON.stringify({ state: value.state ?? 'Unavailable', explanation: value.explanation ?? '', severity: value.severity ?? 'normal', confidence: value.confidence ?? null, icon: value.icon || definition.icon, updated_at: new Date().toISOString() }) });\n});\nreturn [messages];",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 100,
+    "wires": [["ws-core-insights-mqtt"]]
+  },
+  {
+    "id": "ws-core-insights-mqtt",
+    "type": "mqtt out",
+    "z": "ws-core-insights",
+    "name": "MQTT discovery + states",
+    "topic": "",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "YOUR_MQTT_BROKER_CONFIG_ID",
+    "x": 700,
+    "y": 100,
+    "wires": []
+  }
+]
