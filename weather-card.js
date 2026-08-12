@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.3.2';
+const WS_CORE_CARD_VERSION = '0.3.3';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -10,6 +10,9 @@ class WsCoreCard extends HTMLElement {
 
   set hass(hass) { this._hass = hass; if (this.config) this.render(); }
   getCardSize() { return 7; }
+  getGridOptions() {
+    return { rows: 4, columns: 6, min_rows: 2, min_columns: 3, max_columns: 12 };
+  }
 
   entity(suffix) {
     const defaults = { hdd_base: 'number.weather_station_core_hdd_base' };
