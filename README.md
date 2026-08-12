@@ -11,6 +11,20 @@ type: custom:ws-core-card
 weather_entity: weather.weather_station_core
 ```
 
+Additional cards are available:
+
+```yaml
+type: custom:ws-core-extremes-card
+```
+
+```yaml
+type: custom:ws-core-climate-card
+```
+
+```yaml
+type: custom:ws-core-streaks-card
+```
+
 The card defaults to entities beginning with `sensor.weather_station_core_`. Override individual entities when needed:
 
 ```yaml
