@@ -13,20 +13,6 @@ type: custom:ws-core-card
 weather_entity: weather.weather_station_core
 ```
 
-Additional cards are available:
-
-```yaml
-type: custom:ws-core-extremes-card
-```
-
-```yaml
-type: custom:ws-core-climate-card
-```
-
-```yaml
-type: custom:ws-core-streaks-card
-```
-
 The card defaults to entities beginning with `sensor.weather_station_core_`. Override individual entities when needed:
 
 ```yaml
@@ -49,3 +35,4 @@ The main card reads the usual `sensor.weather_station_core_` entities by default
 - **Heating demand:** `heating_degree_day`, `temperature_anomaly_30_day`, `temperature`, and `hdd_base`.
 - **Rain likelihood and nowcast:** `rain_likelihood` (optional), `nowcast_intensity`, `rain_next_60_min`, and `nowcast_confidence`. Without a likelihood sensor, the card interprets the projected 60-minute rain amount.
 - **Data confidence:** `data_quality_score` and `nowcast_confidence`, combined when both are present.
+- **Comfort and condensation:** `humidity`, `dew_point`, and `temperature` identify muggy, dry, or condensation-prone conditions.
