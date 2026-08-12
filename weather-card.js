@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.3';
+const WS_CORE_CARD_VERSION = '0.4.4';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -10,7 +10,7 @@ class WsCoreCard extends HTMLElement {
 
   set hass(hass) { this._hass = hass; if (this.config) this.render(); }
   getCardSize() { return 2; }
-  getGridOptions() { return { rows: 2, columns: 6, min_rows: 2, min_columns: 3, max_columns: 12 }; }
+  getGridOptions() { return { auto_height: true, columns: 6, min_columns: 3, max_columns: 12 }; }
 
   static getConfigElement() { return document.createElement('ws-core-card-editor'); }
   static getStubConfig() { return { type: 'custom:ws-core-card', entity: 'sensor.weather_station_core_rain_outlook' }; }
@@ -27,14 +27,23 @@ class WsCoreCard extends HTMLElement {
     const confidence = attributes.confidence ?? attributes.data_confidence;
     const icon = attributes.icon || '';
     this.shadowRoot.innerHTML = `<style>${WsCoreCard.styles()}</style><ha-card class="${this.esc(severity)}"><div class="content">
-      <div class="label">${icon ? `<span class="icon">${this.esc(icon)}</span>` : ''}${this.esc(title)}</div>
+      <div class="label">${icon.startsWith('mdi:') ? `<ha-icon class="icon" icon="${this.esc(icon)}"></ha-icon>` : icon ? `<span class="icon">${this.esc(icon)}</span>` : ''}${this.esc(title)}</div>
       <div class="state">${this.esc(unavailable ? 'Unavailable' : state.state)}</div>
       ${explanation ? `<div class="explanation">${this.esc(explanation)}</div>` : ''}
       ${this.config.show_confidence !== false && confidence !== undefined ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
     </div></ha-card>`;
+    this.shadowRoot.querySelector('ha-card').addEventListener('click', () => this.handleTap());
   }
 
-  static styles() { return `:host{display:block}ha-card{overflow:hidden;border-left:4px solid var(--primary-color)}.content{padding:14px 16px}.label{font-size:.75rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.icon{margin-right:6px}.state{font-size:1.15rem;font-weight:600;margin-top:5px}.explanation{font-size:.84rem;color:var(--secondary-text-color);margin-top:5px}.confidence{font-size:.72rem;color:var(--secondary-text-color);margin-top:10px}.rain,.warning,.alert,.high,.critical{border-left-color:#f59e0b}.rain{border-left-color:#60a5fa}.good,.normal,.clear,.low{border-left-color:#34d399}.limited,.medium{border-left-color:#fbbf24}.unavailable{border-left-color:var(--disabled-text-color)}@media (max-width:500px){.content{padding:12px}}`; }
+  handleTap() {
+    const action = this.config.tap_action || { action: 'more-info' };
+    if (action.action === 'none') return;
+    if (action.action === 'url' && action.url_path) { window.open(action.url_path, '_blank', 'noopener'); return; }
+    if (action.action === 'navigate' && action.navigation_path) { window.history.pushState({}, '', action.navigation_path); window.dispatchEvent(new Event('location-changed')); return; }
+    this.dispatchEvent(new CustomEvent('hass-more-info', { bubbles: true, composed: true, detail: { entityId: this.config.entity } }));
+  }
+
+  static styles() { return `:host{display:block}ha-card{overflow:hidden;border-left:4px solid var(--primary-color);cursor:pointer}.content{padding:14px 16px}.label{font-size:.75rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center}.icon{margin-right:6px;--mdc-icon-size:18px}.state{font-size:1.15rem;font-weight:600;margin-top:5px}.explanation{font-size:.84rem;color:var(--secondary-text-color);margin-top:5px}.confidence{font-size:.72rem;color:var(--secondary-text-color);margin-top:10px}.rain,.warning,.alert,.high,.critical{border-left-color:#f59e0b}.rain{border-left-color:#60a5fa}.good,.normal,.clear,.low{border-left-color:#34d399}.limited,.medium{border-left-color:#fbbf24}.unavailable{border-left-color:var(--disabled-text-color)}@media (max-width:500px){.content{padding:12px}}`; }
 }
 
 class WsCoreCardEditor extends HTMLElement {
@@ -49,9 +58,10 @@ class WsCoreCardEditor extends HTMLElement {
     this.shadowRoot.innerHTML = `<ha-form></ha-form>`;
     this._form = this.shadowRoot.querySelector('ha-form');
     this._form.schema = [
-      { name: 'entity', label: 'Insight sensor', required: true, selector: { entity: { domain: 'sensor' } } },
-      { name: 'title', label: 'Card title', selector: { text: {} } },
-      { name: 'show_confidence', label: 'Show confidence', default: true, selector: { boolean: {} } },
+      { name: 'entity', label: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      { name: 'title', label: 'Title', selector: { text: {} } },
+      { name: 'show_confidence', label: 'Show confidence', selector: { boolean: {} } },
+      { name: 'tap_action', label: 'Tap action', selector: { ui_action: {} } },
     ];
     this._form.addEventListener('value-changed', event => {
       this._config = { ...this._config, ...event.detail.value };

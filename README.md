@@ -1,6 +1,6 @@
 # Weather Station Core Card
 
-Version 0.4.3
+Version 0.4.4
 
 A dependency-free Home Assistant Lovelace card for MQTT-published Weather Station Core insight sensors. Calculations can live in Node-RED; the card only renders the selected sensor.
 
@@ -53,6 +53,6 @@ The flow derives the seven insight states, publishes MQTT discovery and retained
 
 The card is intentionally content-only, so you can place your own heading outside it. Insight panels automatically flow into as many columns as the card width allows.
 
-In the Home Assistant Sections layout, the card defaults to 6 of 12 columns and supports resizing from 3 to 12 columns.
+In the Home Assistant Sections layout, the card defaults to 6 of 12 columns, supports resizing from 3 to 12 columns, and requests automatic height.
 
 If Home Assistant still shows an older card after updating, reload the dashboard resources or add a version query to the resource URL, for example `weather-card.js?v=0.4.1`.
