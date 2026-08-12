@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.3.0';
+const WS_CORE_CARD_VERSION = '0.3.1';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -9,7 +9,7 @@ class WsCoreCard extends HTMLElement {
   }
 
   set hass(hass) { this._hass = hass; if (this.config) this.render(); }
-  getCardSize() { return 4; }
+  getCardSize() { return 7; }
 
   entity(suffix) {
     const defaults = { hdd_base: 'number.weather_station_core_hdd_base' };
@@ -80,15 +80,40 @@ class WsCoreCard extends HTMLElement {
     return { level: 'Comfortable moisture levels', context: rh !== null ? `${rh}% humidity${dewPoint !== null ? `; dew point ${this.display(dew, 1)} degrees` : ''}.` : `Dew point ${this.display(dew, 1)} degrees.` };
   }
 
+  frostInsight(temperature, dew) {
+    const temp = this.number(temperature), dewPoint = this.number(dew);
+    if (temp === null) return { level: 'Frost risk unavailable', context: 'Waiting for temperature data.' };
+    if (temp <= 0) return { level: 'Frost likely', context: `Temperature is ${temp.toFixed(1)} degrees; protect exposed plants and pipes.` };
+    if (temp <= 3 && dewPoint !== null && dewPoint <= 1) return { level: 'Frost possible', context: `Temperature is ${temp.toFixed(1)} degrees with a near-freezing dew point.` };
+    return { level: 'Low frost risk', context: `Temperature is ${temp.toFixed(1)} degrees.` };
+  }
+
+  windChillInsight(temperature, wind) {
+    const temp = this.number(temperature), speed = this.number(wind);
+    if (temp === null || speed === null || temp > 10 || speed < 5) return { level: 'No notable wind chill', context: 'Wind and temperature do not indicate significant exposure.' };
+    const windUnit = this.unit(wind), kmh = /mph/i.test(windUnit) ? speed * 1.60934 : /m\/s|ms-1/i.test(windUnit) ? speed * 3.6 : speed;
+    const chill = 13.12 + 0.6215 * temp - 11.37 * Math.pow(kmh, 0.16) + 0.3965 * temp * Math.pow(kmh, 0.16);
+    return { level: chill <= -10 ? 'Strong wind chill' : chill <= 0 ? 'Noticeable wind chill' : 'Mild wind chill', context: `Feels like about ${chill.toFixed(1)} degrees at ${speed.toFixed(1)} ${this.unit(wind) || 'km/h'} wind.` };
+  }
+
+  dryingInsight(humidity, rain, likelihood, wind) {
+    const rh = this.percentage(humidity), amount = this.number(rain), chance = this.percentage(likelihood), speed = this.number(wind);
+    if (rh === null && amount === null && chance === null) return { level: 'Drying outlook unavailable', context: 'Waiting for humidity, rain, or wind data.' };
+    if ((chance !== null && chance >= 60) || (amount !== null && amount > 0.5)) return { level: 'Poor drying window', context: 'Rain is likely or expected in the next hour.' };
+    if (rh !== null && rh >= 75) return { level: 'Slow drying conditions', context: `${rh}% humidity${speed !== null ? ` with ${speed.toFixed(1)} ${this.unit(wind)} wind` : ''}.` };
+    if (rh !== null && rh <= 60 && (speed === null || speed >= 8)) return { level: 'Good drying window', context: `${rh}% humidity${speed !== null ? ` and ${speed.toFixed(1)} ${this.unit(wind)} wind` : ''}; rain not indicated.` };
+    return { level: 'Moderate drying conditions', context: 'Some moisture or wind is present; drying may take time.' };
+  }
+
   render() {
     if (!this.shadowRoot) return;
     const weather = this.weather(), temp = this.entity('temperature'), humidity = this.entity('humidity'), dew = this.entity('dew_point');
     const hdd = this.entity('heating_degree_day'), anomaly = this.entity('temperature_anomaly_30_day'), base = this.entity('hdd_base');
-    const nowcast = this.entity('nowcast_intensity'), confidence = this.entity('nowcast_confidence'), rain = this.entity('rain_next_60_min'), likelihood = this.entity('rain_likelihood');
+    const nowcast = this.entity('nowcast_intensity'), confidence = this.entity('nowcast_confidence'), rain = this.entity('rain_next_60_min'), likelihood = this.entity('rain_likelihood'), wind = this.entity('wind_speed');
     const alert = this.entity('alert_state'), quality = this.entity('data_quality_score');
     const condition = weather ? this.value(weather, 'Unavailable') : this.value(this.entity('current_condition'), 'Unavailable');
     const conditionLabel = weather?.attributes?.temperature !== undefined ? `${condition} - ${weather.attributes.temperature} ${weather.attributes.temperature_unit || ''}` : condition;
-    const alertState = this.value(alert, 'Unavailable'), heating = this.heatingInsight(hdd, anomaly, temp, base), rainOutlook = this.rainInsight(nowcast, rain, likelihood, confidence), data = this.dataInsight(quality, confidence), comfort = this.comfortInsight(humidity, dew, temp);
+    const alertState = this.value(alert, 'Unavailable'), heating = this.heatingInsight(hdd, anomaly, temp, base), rainOutlook = this.rainInsight(nowcast, rain, likelihood, confidence), data = this.dataInsight(quality, confidence), comfort = this.comfortInsight(humidity, dew, temp), frost = this.frostInsight(temp, dew), windChill = this.windChillInsight(temp, wind), drying = this.dryingInsight(humidity, rain, likelihood, wind);
     this.shadowRoot.innerHTML = `<style>${WsCoreCard.styles()}</style><ha-card><div class="content">
       <div class="header"><div><h1>${this.config.title || 'Home Weather'}</h1><div class="condition">${conditionLabel}</div></div><div class="status ${alertState === 'clear' ? 'ok' : 'warn'}">${alertState}</div></div>
       <section class="insights"><h2>Weather insights</h2>
@@ -96,12 +121,15 @@ class WsCoreCard extends HTMLElement {
         <div class="insight rain"><span class="insight-label">Rain likelihood and nowcast</span><strong>${rainOutlook.level}</strong><p>${rainOutlook.context}</p></div>
         <div class="insight confidence"><span class="insight-label">Data confidence</span><strong>${data.level}</strong><p>${data.context}</p></div>
         <div class="insight comfort"><span class="insight-label">Comfort and condensation</span><strong>${comfort.level}</strong><p>${comfort.context}</p></div>
+        <div class="insight frost"><span class="insight-label">Frost risk</span><strong>${frost.level}</strong><p>${frost.context}</p></div>
+        <div class="insight wind"><span class="insight-label">Wind-chill exposure</span><strong>${windChill.level}</strong><p>${windChill.context}</p></div>
+        <div class="insight drying"><span class="insight-label">Drying window</span><strong>${drying.level}</strong><p>${drying.context}</p></div>
       </section>
       <div class="footer"><span>Interpreted from station readings and derived sensors</span><span class="source">${this.attr(weather, 'attribution', 'Weather Station Core')}</span></div>
     </div></ha-card>`;
   }
 
-  static styles() { return `:host{display:block}ha-card{overflow:hidden}.content{padding:16px;color:var(--primary-text-color)}.header{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}h1{font-size:1.25rem;margin:0 0 4px}.condition{color:var(--secondary-text-color);text-transform:capitalize}.status{padding:4px 8px;border-radius:999px;font-size:.75rem;text-transform:capitalize}.status.ok{background:rgba(74,222,128,.16);color:#4ade80}.status.warn{background:rgba(251,191,36,.16);color:#fbbf24}.insights{display:grid;gap:10px}.insight{border-radius:12px;padding:12px;background:var(--secondary-background-color);border-left:3px solid var(--primary-color)}.insight.rain{border-left-color:#60a5fa}.insight.confidence{border-left-color:#a78bfa}.insight.comfort{border-left-color:#34d399}.insight-label{display:block;font-size:.72rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.insight>strong{display:block;font-size:1rem;margin-top:3px}.insight p{font-size:.82rem;color:var(--secondary-text-color);margin:4px 0 0}.footer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--divider-color);margin-top:16px;padding-top:10px;font-size:.72rem;color:var(--secondary-text-color)}.source{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:500px){.footer{display:block}.source{margin-top:4px}}`; }
+  static styles() { return `:host{display:block}ha-card{overflow:hidden}.content{padding:16px;color:var(--primary-text-color)}.header{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}h1{font-size:1.25rem;margin:0 0 4px}.condition{color:var(--secondary-text-color);text-transform:capitalize}.status{padding:4px 8px;border-radius:999px;font-size:.75rem;text-transform:capitalize}.status.ok{background:rgba(74,222,128,.16);color:#4ade80}.status.warn{background:rgba(251,191,36,.16);color:#fbbf24}.insights{display:grid;gap:10px}.insight{border-radius:12px;padding:12px;background:var(--secondary-background-color);border-left:3px solid var(--primary-color)}.insight.rain{border-left-color:#60a5fa}.insight.confidence{border-left-color:#a78bfa}.insight.comfort{border-left-color:#34d399}.insight.frost{border-left-color:#93c5fd}.insight.wind{border-left-color:#fbbf24}.insight.drying{border-left-color:#fb923c}.insight-label{display:block;font-size:.72rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.insight>strong{display:block;font-size:1rem;margin-top:3px}.insight p{font-size:.82rem;color:var(--secondary-text-color);margin:4px 0 0}.footer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--divider-color);margin-top:16px;padding-top:10px;font-size:.72rem;color:var(--secondary-text-color)}.source{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:500px){.footer{display:block}.source{margin-top:4px}}`; }
 }
 
 const registerCard = (tag, klass) => { if (!customElements.get(tag)) customElements.define(tag, klass); };
