@@ -1,3 +1,5 @@
+const WS_CORE_CARD_VERSION = '0.2.0';
+
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
     if (!config || !['custom:ws-core-card', 'custom:ws-core-extremes-card', 'custom:ws-core-climate-card', 'custom:ws-core-streaks-card'].includes(config.type)) {
@@ -139,12 +141,16 @@ class WsCoreStreaksCard extends WsCoreCard {
   }
 }
 
-customElements.define('ws-core-card', WsCoreCard);
-customElements.define('ws-core-extremes-card', WsCoreExtremesCard);
-customElements.define('ws-core-climate-card', WsCoreClimateCard);
-customElements.define('ws-core-streaks-card', WsCoreStreaksCard);
+const registerCard = (tag, klass) => {
+  if (!customElements.get(tag)) customElements.define(tag, klass);
+};
+registerCard('ws-core-card', WsCoreCard);
+registerCard('ws-core-extremes-card', WsCoreExtremesCard);
+registerCard('ws-core-climate-card', WsCoreClimateCard);
+registerCard('ws-core-streaks-card', WsCoreStreaksCard);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Core Card', description: 'Heating-focused weather overview for Weather Station Core.' });
-window.customCards.push({ type: 'ws-core-extremes-card', name: 'Weather Station Core Extremes', description: 'Temperature and wind extremes.' });
-window.customCards.push({ type: 'ws-core-climate-card', name: 'Weather Station Core Climate', description: '30-day climate context and rainfall.' });
-window.customCards.push({ type: 'ws-core-streaks-card', name: 'Weather Station Core Streaks', description: 'Dry, frost, and heat streaks.' });
+window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Core Card', description: `Heating-focused weather overview (v${WS_CORE_CARD_VERSION}).` });
+window.customCards.push({ type: 'ws-core-extremes-card', name: 'Weather Station Core Extremes', description: `Temperature and wind extremes (v${WS_CORE_CARD_VERSION}).` });
+window.customCards.push({ type: 'ws-core-climate-card', name: 'Weather Station Core Climate', description: `30-day climate context and rainfall (v${WS_CORE_CARD_VERSION}).` });
+window.customCards.push({ type: 'ws-core-streaks-card', name: 'Weather Station Core Streaks', description: `Dry, frost, and heat streaks (v${WS_CORE_CARD_VERSION}).` });
+console.info(`[Weather Station Core Card] loaded v${WS_CORE_CARD_VERSION}`);

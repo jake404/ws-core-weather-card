@@ -1,5 +1,7 @@
 # Weather Station Core Card
 
+Version 0.2.0
+
 A dependency-free Home Assistant Lovelace card for Weather Station Core. It combines the Weather Station Core weather entity with derived sensors for current conditions, heating degree days, forecast tiles, rain nowcast, alerts, and data quality.
 
 ## HACS
