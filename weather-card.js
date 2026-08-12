@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.2';
+const WS_CORE_CARD_VERSION = '0.4.3';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -42,31 +42,35 @@ class WsCoreCardEditor extends HTMLElement {
     this._config = { type: 'custom:ws-core-card', ...config };
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     if (!this._form) this.render();
-    else this.updateForm();
+    else this.updateFormData();
   }
 
   render() {
     this.shadowRoot.innerHTML = `<ha-form></ha-form>`;
     this._form = this.shadowRoot.querySelector('ha-form');
     this._form.schema = [
-      { name: 'entity', required: true, selector: { entity: { domain: 'sensor' } } },
-      { name: 'title', selector: { text: {} } },
-      { name: 'show_confidence', default: true, selector: { boolean: {} } },
+      { name: 'entity', label: 'Insight sensor', required: true, selector: { entity: { domain: 'sensor' } } },
+      { name: 'title', label: 'Card title', selector: { text: {} } },
+      { name: 'show_confidence', label: 'Show confidence', default: true, selector: { boolean: {} } },
     ];
     this._form.addEventListener('value-changed', event => {
       this._config = { ...this._config, ...event.detail.value };
       this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: this._config } }));
     });
-    this.updateForm();
+    this.updateFormData();
   }
 
-  updateForm() {
+  updateFormData() {
     if (!this._form) return;
     this._form.hass = this._hass;
-    this._form.data = this._config;
+    const serialized = JSON.stringify(this._config);
+    if (serialized !== this._lastConfig) {
+      this._form.data = this._config;
+      this._lastConfig = serialized;
+    }
   }
 
-  set hass(hass) { this._hass = hass; this.updateForm(); }
+  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; }
 }
 
 const existingCard = customElements.get('ws-core-card');
