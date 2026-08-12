@@ -4,31 +4,63 @@
     "type": "tab",
     "label": "Weather Station Core insights",
     "disabled": false,
-    "info": "Publishes interpreted Weather Station Core sensors through MQTT discovery."
+    "info": "Derives seven insights, publishes MQTT discovery, and republishes after Home Assistant restarts."
   },
   {
-    "id": "ws-core-insights-in",
+    "id": "ws-core-raw-input",
     "type": "link in",
     "z": "ws-core-insights",
-    "name": "Weather Station Core inputs",
+    "name": "Raw weather values",
     "links": [],
     "x": 120,
     "y": 100,
-    "wires": [["ws-core-insights-publish"]]
+    "wires": [["ws-core-accumulate"]]
   },
   {
-    "id": "ws-core-insights-publish",
+    "id": "ws-core-accumulate",
     "type": "function",
     "z": "ws-core-insights",
-    "name": "Build insight sensors + discovery",
-    "func": "// Feed this node a payload with one object per insight key.\n// Each object should contain state, explanation, severity, confidence, and optionally icon.\n// Example: msg.payload.rain_outlook = { state: 'Rain likely soon', explanation: '82% likelihood in 60 minutes', severity: 'rain', confidence: 88 }\nconst input = msg.payload || {};\nconst device = { identifiers: ['weather_station_core'], name: 'Weather Station Core', manufacturer: 'Weather Station Core', model: 'Interpreted insights', sw_version: '0.4.0' };\nconst base = 'weather_station_core/insights/';\nconst insights = {\n  heating_demand: { name: 'Heating demand', icon: 'mdi:home-thermometer' },\n  rain_outlook: { name: 'Rain outlook', icon: 'mdi:weather-rainy' },\n  data_confidence: { name: 'Data confidence', icon: 'mdi:check-decagram' },\n  comfort: { name: 'Comfort and condensation', icon: 'mdi:water-percent' },\n  frost_risk: { name: 'Frost risk', icon: 'mdi:snowflake-alert' },\n  wind_chill: { name: 'Wind chill exposure', icon: 'mdi:weather-windy' },\n  drying_window: { name: 'Drying window', icon: 'mdi:weather-sunny' }\n};\nconst messages = [];\nObject.entries(insights).forEach(([key, definition]) => {\n  const value = input[key] || {};\n  const stateTopic = `${base}${key}/state`;\n  const configTopic = `homeassistant/sensor/weather_station_core_${key}/config`;\n  messages.push({ topic: configTopic, retain: true, payload: JSON.stringify({ name: definition.name, unique_id: `weather_station_core_${key}`, object_id: `weather_station_core_${key}`, state_topic: stateTopic, value_template: '{{ value_json.state }}', json_attributes_topic: stateTopic, icon: value.icon || definition.icon, device }) });\n  messages.push({ topic: stateTopic, retain: true, payload: JSON.stringify({ state: value.state ?? 'Unavailable', explanation: value.explanation ?? '', severity: value.severity ?? 'normal', confidence: value.confidence ?? null, icon: value.icon || definition.icon, updated_at: new Date().toISOString() }) });\n});\nreturn [messages];",
+    "name": "Merge individual sensor updates",
+    "func": "const values = context.get('raw_values') || {};\nif (msg.topic === 'homeassistant/status') return msg;\nif (msg.payload && typeof msg.payload === 'object' && msg.payload.key) values[msg.payload.key] = msg.payload.value;\nelse if (msg.topic && msg.payload !== undefined) values[msg.topic.split('/').pop()] = msg.payload;\nelse if (msg.payload && typeof msg.payload === 'object') Object.assign(values, msg.payload);\nif (values.wind !== undefined) values.wind_speed = values.wind;\nif (values.wind_average !== undefined) values.wind_speed = values.wind_average;\nif (values.rain_next_60_min === undefined) values.rain_next_60_min = 0;\ncontext.set('raw_values', values);\nmsg.payload = values;\nreturn msg;",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 390,
+    "x": 350,
     "y": 100,
+    "wires": [["ws-core-derive"]]
+  },
+  {
+    "id": "ws-core-ha-online",
+    "type": "mqtt in",
+    "z": "ws-core-insights",
+    "name": "Home Assistant online",
+    "topic": "homeassistant/status",
+    "qos": "2",
+    "datatype": "utf8",
+    "broker": "YOUR_MQTT_BROKER_CONFIG_ID",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 180,
+    "wires": [["ws-core-derive"]]
+  },
+  {
+    "id": "ws-core-derive",
+    "type": "function",
+    "z": "ws-core-insights",
+    "name": "Derive and cache seven insights",
+    "func": "const device = { identifiers: ['weather_station_core'], name: 'Weather Station Core', manufacturer: 'Weather Station Core', model: 'Interpreted insights', sw_version: '0.4.0' };\nconst base = 'weather_station_core/insights/';\nconst defs = { heating_demand: ['Heating demand', 'mdi:home-thermometer'], rain_outlook: ['Rain outlook', 'mdi:weather-rainy'], data_confidence: ['Data confidence', 'mdi:check-decagram'], comfort: ['Comfort and condensation', 'mdi:water-percent'], frost_risk: ['Frost risk', 'mdi:snowflake-alert'], wind_chill: ['Wind chill exposure', 'mdi:weather-windy'], drying_window: ['Drying window', 'mdi:weather-sunny'] };\nconst n = key => { const v = Number((msg.payload || {})[key]); return Number.isFinite(v) ? v : null; };\nconst pct = key => { const v = n(key); return v === null ? null : Math.round(v <= 1 ? v * 100 : v); };\nlet insights = context.get('insights') || null;\nif (msg.topic !== 'homeassistant/status' && msg.payload && typeof msg.payload === 'object') {\n  const t=n('temperature'), rh=pct('humidity'), dew=n('dew_point'), hdd=n('heating_degree_day'), anomaly=n('temperature_anomaly_30_day'), rain=n('rain_next_60_min'), chance=pct('rain_likelihood'), wind=n('wind_speed'), quality=pct('data_quality_score'), nowcast=pct('nowcast_confidence');\n  const confidence = quality !== null && nowcast !== null ? Math.round((quality + nowcast) / 2) : quality ?? nowcast;\n  insights = {\n    heating_demand: { state: hdd === null ? 'Unavailable' : hdd >= 12 ? 'High heating demand' : hdd >= 6 ? 'Moderate heating demand' : hdd > 0 ? 'Light heating demand' : 'Little heating demand', explanation: hdd === null ? 'Waiting for heating inputs.' : `${hdd.toFixed(1)} heating degree days today${anomaly === null ? '' : `; ${Math.abs(anomaly).toFixed(1)} degrees ${anomaly < 0 ? 'below' : 'above'} average`}.`, severity: hdd !== null && hdd >= 12 ? 'warning' : 'normal' },\n    rain_outlook: { state: chance === null && rain === null ? 'Unavailable' : chance >= 70 || rain > 1 ? 'Rain likely soon' : chance >= 35 || rain > 0 ? 'Showers possible' : 'Rain unlikely soon', explanation: chance !== null ? `${chance}% likelihood in 60 minutes.` : `${rain.toFixed(1)} projected in 60 minutes.`, severity: chance >= 70 || rain > 1 ? 'rain' : 'normal', confidence: nowcast },\n    data_confidence: { state: confidence === null ? 'Unavailable' : confidence >= 85 ? 'High confidence' : confidence >= 60 ? 'Good confidence' : 'Limited confidence', explanation: confidence === null ? 'Waiting for quality signals.' : `${confidence}% combined confidence.`, severity: confidence !== null && confidence < 35 ? 'warning' : 'normal', confidence },\n    comfort: { state: rh === null ? 'Unavailable' : rh >= 80 ? 'Muggy and condensation-prone' : rh <= 35 ? 'Dry indoor air likely' : 'Comfortable moisture levels', explanation: rh === null ? 'Waiting for humidity.' : `${rh}% humidity${dew === null ? '' : `; dew point ${dew.toFixed(1)} degrees`}.`, severity: rh >= 80 ? 'warning' : 'normal' },\n    frost_risk: { state: t === null ? 'Unavailable' : t <= 0 ? 'Frost likely' : t <= 3 && dew !== null && dew <= 1 ? 'Frost possible' : 'Low frost risk', explanation: t === null ? 'Waiting for temperature.' : `${t.toFixed(1)} degrees.`, severity: t !== null && t <= 0 ? 'warning' : 'normal' },\n    wind_chill: { state: t === null || wind === null || t > 10 || wind < 5 ? 'No notable wind chill' : 'Noticeable wind chill', explanation: t === null || wind === null ? 'Waiting for wind and temperature.' : `${t.toFixed(1)} degrees with ${wind.toFixed(1)} wind.`, severity: 'normal' },\n    drying_window: { state: chance >= 60 || rain > 0.5 ? 'Poor drying window' : rh !== null && rh <= 60 ? 'Good drying window' : 'Moderate drying conditions', explanation: chance >= 60 || rain > 0.5 ? 'Rain is likely or expected soon.' : 'Based on humidity, wind, and rain outlook.', severity: chance >= 60 || rain > 0.5 ? 'warning' : 'normal' }\n  };\n  context.set('insights', insights);\n}\nif (!insights) return null;\nconst out=[];\nObject.entries(defs).forEach(([key, def]) => { const value=insights[key] || {}; const stateTopic=`${base}${key}/state`; out.push({ topic:`homeassistant/sensor/weather_station_core_${key}/config`, retain:true, payload:JSON.stringify({ name:def[0], unique_id:`weather_station_core_${key}`, object_id:`weather_station_core_${key}`, state_topic:stateTopic, value_template:'{{ value_json.state }}', json_attributes_topic:stateTopic, icon:value.icon||def[1], device }) }); out.push({ topic:stateTopic, retain:true, payload:JSON.stringify({...value, updated_at:new Date().toISOString()}) }); });\nreturn [out];",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 120,
     "wires": [["ws-core-insights-mqtt"]]
   },
   {
@@ -45,8 +77,8 @@
     "correl": "",
     "expiry": "",
     "broker": "YOUR_MQTT_BROKER_CONFIG_ID",
-    "x": 700,
-    "y": 100,
+    "x": 730,
+    "y": 120,
     "wires": []
   }
 ]
