@@ -140,6 +140,9 @@ class WsCoreStreaksCard extends WsCoreCard {
 }
 
 customElements.define('ws-core-card', WsCoreCard);
+customElements.define('ws-core-extremes-card', WsCoreExtremesCard);
+customElements.define('ws-core-climate-card', WsCoreClimateCard);
+customElements.define('ws-core-streaks-card', WsCoreStreaksCard);
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Core Card', description: 'Heating-focused weather overview for Weather Station Core.' });
 window.customCards.push({ type: 'ws-core-extremes-card', name: 'Weather Station Core Extremes', description: 'Temperature and wind extremes.' });
