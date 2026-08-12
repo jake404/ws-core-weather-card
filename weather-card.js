@@ -137,7 +137,19 @@ class WsCoreCard extends HTMLElement {
   static styles() { return `:host{display:block;container-type:inline-size}ha-card{overflow:hidden}.content{padding:0;color:var(--primary-text-color)}.insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}.insight{border-radius:12px;padding:12px;background:var(--secondary-background-color);border-left:3px solid var(--primary-color)}.insight.rain{border-left-color:#60a5fa}.insight.confidence{border-left-color:#a78bfa}.insight.comfort{border-left-color:#34d399}.insight.frost{border-left-color:#93c5fd}.insight.wind{border-left-color:#fbbf24}.insight.drying{border-left-color:#fb923c}.insight-label{display:block;font-size:.72rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.insight>strong{display:block;font-size:1rem;margin-top:3px}.insight p{font-size:.82rem;color:var(--secondary-text-color);margin:4px 0 0}@container (max-width:520px){.insights{grid-template-columns:1fr}}`; }
 }
 
-const registerCard = (tag, klass) => { if (!customElements.get(tag)) customElements.define(tag, klass); };
+const registerCard = (tag, klass) => {
+  const existing = customElements.get(tag);
+  if (!existing) {
+    customElements.define(tag, klass);
+    return;
+  }
+  // Home Assistant may load a new resource without rebuilding the existing element.
+  // Copy the new prototype methods across so visible cards update in place.
+  for (const name of Object.getOwnPropertyNames(klass.prototype)) {
+    if (name !== 'constructor') Object.defineProperty(existing.prototype, name, Object.getOwnPropertyDescriptor(klass.prototype, name));
+  }
+  document.querySelectorAll(tag).forEach(card => card.render?.());
+};
 registerCard('ws-core-card', WsCoreCard);
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Core Card', description: `Interpreted heating, rain, and data-confidence overview (v${WS_CORE_CARD_VERSION}).` });
