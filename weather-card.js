@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.4';
+const WS_CORE_CARD_VERSION = '0.4.5';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -30,7 +30,7 @@ class WsCoreCard extends HTMLElement {
       <div class="label">${icon.startsWith('mdi:') ? `<ha-icon class="icon" icon="${this.esc(icon)}"></ha-icon>` : icon ? `<span class="icon">${this.esc(icon)}</span>` : ''}${this.esc(title)}</div>
       <div class="state">${this.esc(unavailable ? 'Unavailable' : state.state)}</div>
       ${explanation ? `<div class="explanation">${this.esc(explanation)}</div>` : ''}
-      ${this.config.show_confidence !== false && confidence !== undefined ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
+      ${confidence !== undefined && confidence !== null ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
     </div></ha-card>`;
     this.shadowRoot.querySelector('ha-card').addEventListener('click', () => this.handleTap());
   }
@@ -58,13 +58,13 @@ class WsCoreCardEditor extends HTMLElement {
     this.shadowRoot.innerHTML = `<ha-form></ha-form>`;
     this._form = this.shadowRoot.querySelector('ha-form');
     this._form.schema = [
-      { name: 'entity', label: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
-      { name: 'title', label: 'Title', selector: { text: {} } },
-      { name: 'show_confidence', label: 'Show confidence', selector: { boolean: {} } },
-      { name: 'tap_action', label: 'Tap action', selector: { ui_action: {} } },
+      { name: 'Entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      { name: 'Title', selector: { text: {} } },
+      { name: 'Tap action', selector: { ui_action: {} } },
     ];
     this._form.addEventListener('value-changed', event => {
-      this._config = { ...this._config, ...event.detail.value };
+      const value = event.detail.value || {};
+      this._config = { ...this._config, entity: value.Entity ?? this._config.entity, title: value.Title ?? this._config.title, tap_action: value['Tap action'] ?? this._config.tap_action };
       this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: this._config } }));
     });
     this.updateFormData();
@@ -73,9 +73,10 @@ class WsCoreCardEditor extends HTMLElement {
   updateFormData() {
     if (!this._form) return;
     this._form.hass = this._hass;
-    const serialized = JSON.stringify(this._config);
+    const formData = { Entity: this._config.entity || '', Title: this._config.title || '', 'Tap action': this._config.tap_action || { action: 'more-info' } };
+    const serialized = JSON.stringify(formData);
     if (serialized !== this._lastConfig) {
-      this._form.data = this._config;
+      this._form.data = formData;
       this._lastConfig = serialized;
     }
   }

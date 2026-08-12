@@ -1,6 +1,6 @@
 # Weather Station Core Card
 
-Version 0.4.4
+Version 0.4.5
 
 A dependency-free Home Assistant Lovelace card for MQTT-published Weather Station Core insight sensors. Calculations can live in Node-RED; the card only renders the selected sensor.
 
@@ -19,7 +19,8 @@ Choose an insight sensor in the visual card editor, or configure it directly:
 type: custom:ws-core-card
 entity: sensor.weather_station_core_frost_risk
 title: Frost risk
-show_confidence: true
+tap_action:
+  action: more-info
 ```
 
 Unavailable and unknown entities remain visible as **Unavailable**.
