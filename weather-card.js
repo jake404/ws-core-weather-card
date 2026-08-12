@@ -26,6 +26,9 @@ class WsCoreCard extends HTMLElement {
   display(state, decimals = 1) { const value = this.number(state); return value === null ? '-' : value.toFixed(decimals).replace(/\.0$/, ''); }
   percentage(state) { const value = this.number(state); return value === null ? null : Math.round(value <= 1 ? value * 100 : value); }
   words(value) { return String(value ?? '').replace(/[_-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase()); }
+  safeInsight(builder, fallback) {
+    try { return builder(); } catch (error) { console.warn('[Weather Station Core Card] insight unavailable', error); return fallback; }
+  }
 
   metric(label, state, decimals = 1) {
     const missing = this.unavailable(state);
@@ -113,7 +116,14 @@ class WsCoreCard extends HTMLElement {
     const alert = this.entity('alert_state'), quality = this.entity('data_quality_score');
     const condition = weather ? this.value(weather, 'Unavailable') : this.value(this.entity('current_condition'), 'Unavailable');
     const conditionLabel = weather?.attributes?.temperature !== undefined ? `${condition} - ${weather.attributes.temperature} ${weather.attributes.temperature_unit || ''}` : condition;
-    const alertState = this.value(alert, 'Unavailable'), heating = this.heatingInsight(hdd, anomaly, temp, base), rainOutlook = this.rainInsight(nowcast, rain, likelihood, confidence), data = this.dataInsight(quality, confidence), comfort = this.comfortInsight(humidity, dew, temp), frost = this.frostInsight(temp, dew), windChill = this.windChillInsight(temp, wind), drying = this.dryingInsight(humidity, rain, likelihood, wind);
+    const alertState = this.value(alert, 'Unavailable');
+    const heating = this.safeInsight(() => this.heatingInsight(hdd, anomaly, temp, base), { level: 'Heating demand unavailable', context: 'Waiting for heating inputs.' });
+    const rainOutlook = this.safeInsight(() => this.rainInsight(nowcast, rain, likelihood, confidence), { level: 'Rain likelihood unavailable', context: 'Waiting for nowcast data.' });
+    const data = this.safeInsight(() => this.dataInsight(quality, confidence), { level: 'Data confidence unavailable', context: 'Waiting for data-quality signals.' });
+    const comfort = this.safeInsight(() => this.comfortInsight(humidity, dew, temp), { level: 'Comfort unavailable', context: 'Waiting for humidity and dew-point data.' });
+    const frost = this.safeInsight(() => this.frostInsight(temp, dew), { level: 'Frost risk unavailable', context: 'Waiting for temperature data.' });
+    const windChill = this.safeInsight(() => this.windChillInsight(temp, wind), { level: 'Wind chill unavailable', context: 'Waiting for wind and temperature data.' });
+    const drying = this.safeInsight(() => this.dryingInsight(humidity, rain, likelihood, wind), { level: 'Drying outlook unavailable', context: 'Waiting for humidity, rain, or wind data.' });
     this.shadowRoot.innerHTML = `<style>${WsCoreCard.styles()}</style><ha-card><div class="content">
       <div class="header"><div><h1>${this.config.title || 'Home Weather'}</h1><div class="condition">${conditionLabel}</div></div><div class="status ${alertState === 'clear' ? 'ok' : 'warn'}">${alertState}</div></div>
       <section class="insights"><h2>Weather insights</h2>
@@ -129,7 +139,7 @@ class WsCoreCard extends HTMLElement {
     </div></ha-card>`;
   }
 
-  static styles() { return `:host{display:block}ha-card{overflow:hidden}.content{padding:16px;color:var(--primary-text-color)}.header{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}h1{font-size:1.25rem;margin:0 0 4px}.condition{color:var(--secondary-text-color);text-transform:capitalize}.status{padding:4px 8px;border-radius:999px;font-size:.75rem;text-transform:capitalize}.status.ok{background:rgba(74,222,128,.16);color:#4ade80}.status.warn{background:rgba(251,191,36,.16);color:#fbbf24}.insights{display:grid;gap:10px}.insight{border-radius:12px;padding:12px;background:var(--secondary-background-color);border-left:3px solid var(--primary-color)}.insight.rain{border-left-color:#60a5fa}.insight.confidence{border-left-color:#a78bfa}.insight.comfort{border-left-color:#34d399}.insight.frost{border-left-color:#93c5fd}.insight.wind{border-left-color:#fbbf24}.insight.drying{border-left-color:#fb923c}.insight-label{display:block;font-size:.72rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.insight>strong{display:block;font-size:1rem;margin-top:3px}.insight p{font-size:.82rem;color:var(--secondary-text-color);margin:4px 0 0}.footer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--divider-color);margin-top:16px;padding-top:10px;font-size:.72rem;color:var(--secondary-text-color)}.source{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:500px){.footer{display:block}.source{margin-top:4px}}`; }
+  static styles() { return `:host{display:block}ha-card{overflow:hidden}.content{padding:16px;color:var(--primary-text-color)}.header{display:flex;justify-content:space-between;align-items:start;margin-bottom:14px}h1{font-size:1.25rem;margin:0 0 4px}.condition{color:var(--secondary-text-color);text-transform:capitalize}.status{padding:4px 8px;border-radius:999px;font-size:.75rem;text-transform:capitalize}.status.ok{background:rgba(74,222,128,.16);color:#4ade80}.status.warn{background:rgba(251,191,36,.16);color:#fbbf24}.insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}.insight{border-radius:12px;padding:12px;background:var(--secondary-background-color);border-left:3px solid var(--primary-color)}.insight.rain{border-left-color:#60a5fa}.insight.confidence{border-left-color:#a78bfa}.insight.comfort{border-left-color:#34d399}.insight.frost{border-left-color:#93c5fd}.insight.wind{border-left-color:#fbbf24}.insight.drying{border-left-color:#fb923c}.insight-label{display:block;font-size:.72rem;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.04em}.insight>strong{display:block;font-size:1rem;margin-top:3px}.insight p{font-size:.82rem;color:var(--secondary-text-color);margin:4px 0 0}.footer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--divider-color);margin-top:16px;padding-top:10px;font-size:.72rem;color:var(--secondary-text-color)}.source{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:500px){.insights{grid-template-columns:1fr}.footer{display:block}.source{margin-top:4px}}`; }
 }
 
 const registerCard = (tag, klass) => { if (!customElements.get(tag)) customElements.define(tag, klass); };
