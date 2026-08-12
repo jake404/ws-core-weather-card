@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.1';
+const WS_CORE_CARD_VERSION = '0.4.2';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -41,23 +41,32 @@ class WsCoreCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { type: 'custom:ws-core-card', ...config };
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    this.render();
+    if (!this._form) this.render();
+    else this.updateForm();
   }
 
   render() {
     this.shadowRoot.innerHTML = `<ha-form></ha-form>`;
-    const form = this.shadowRoot.querySelector('ha-form');
-    form.hass = this._hass;
-    form.data = this._config;
-    form.schema = [
+    this._form = this.shadowRoot.querySelector('ha-form');
+    this._form.schema = [
       { name: 'entity', required: true, selector: { entity: { domain: 'sensor' } } },
       { name: 'title', selector: { text: {} } },
       { name: 'show_confidence', default: true, selector: { boolean: {} } },
     ];
-    form.addEventListener('value-changed', event => this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: { ...this._config, ...event.detail.value } } })));
+    this._form.addEventListener('value-changed', event => {
+      this._config = { ...this._config, ...event.detail.value };
+      this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: this._config } }));
+    });
+    this.updateForm();
   }
 
-  set hass(hass) { this._hass = hass; if (this.shadowRoot) this.render(); }
+  updateForm() {
+    if (!this._form) return;
+    this._form.hass = this._hass;
+    this._form.data = this._config;
+  }
+
+  set hass(hass) { this._hass = hass; this.updateForm(); }
 }
 
 const existingCard = customElements.get('ws-core-card');
@@ -68,7 +77,9 @@ else {
   for (const name of Object.getOwnPropertyNames(WsCoreCard.prototype)) if (name !== 'constructor') Object.defineProperty(existingCard.prototype, name, Object.getOwnPropertyDescriptor(WsCoreCard.prototype, name));
   document.querySelectorAll('ws-core-card').forEach(card => card.render?.());
 }
-if (!customElements.get('ws-core-card-editor')) customElements.define('ws-core-card-editor', WsCoreCardEditor);
+const existingEditor = customElements.get('ws-core-card-editor');
+if (!existingEditor) customElements.define('ws-core-card-editor', WsCoreCardEditor);
+else for (const name of Object.getOwnPropertyNames(WsCoreCardEditor.prototype)) if (name !== 'constructor') Object.defineProperty(existingEditor.prototype, name, Object.getOwnPropertyDescriptor(WsCoreCardEditor.prototype, name));
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'ws-core-card', name: 'Weather Station Insight Card', description: `Generic MQTT insight sensor card (v${WS_CORE_CARD_VERSION}).` });
 console.info(`[Weather Station Core Card] loaded v${WS_CORE_CARD_VERSION}`);
