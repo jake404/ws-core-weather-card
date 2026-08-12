@@ -1,6 +1,6 @@
 # Weather Station Core Card
 
-Version 0.3.1
+Version 0.3.2
 
 A dependency-free Home Assistant Lovelace card for Weather Station Core. It combines current conditions with interpreted correlations for heating demand, rain likelihood and nowcast, plus data confidence.
 
@@ -40,4 +40,6 @@ The main card reads the usual `sensor.weather_station_core_` entities by default
 - **Wind-chill exposure:** temperature and `wind_speed` estimate outdoor feels-like conditions.
 - **Drying window:** humidity, wind, and near-term rain estimate whether laundry or surfaces will dry quickly.
 
-If Home Assistant still shows an older card after updating, reload the dashboard resources or add a version query to the resource URL, for example `weather-card.js?v=0.3.1`.
+The card is intentionally content-only, so you can place your own heading outside it. Insight panels automatically flow into as many columns as the card width allows.
+
+If Home Assistant still shows an older card after updating, reload the dashboard resources or add a version query to the resource URL, for example `weather-card.js?v=0.3.2`.
