@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.4.6';
+const WS_CORE_CARD_VERSION = '0.5.1';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -30,7 +30,7 @@ class WsCoreCard extends HTMLElement {
       <div class="label">${icon.startsWith('mdi:') ? `<ha-icon class="icon" icon="${this.esc(icon)}"></ha-icon>` : icon ? `<span class="icon">${this.esc(icon)}</span>` : ''}${this.esc(title)}</div>
       <div class="state">${this.esc(unavailable ? 'Unavailable' : state.state)}</div>
       ${explanation ? `<div class="explanation">${this.esc(explanation)}</div>` : ''}
-      ${confidence !== undefined && confidence !== null && !this.config.entity.includes('data_confidence') ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
+      ${confidence !== undefined && confidence !== null && !this.config.entity.includes('data_confidence') && !this.config.entity.includes('forecast_quality') ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
     </div></ha-card>`;
     this.shadowRoot.querySelector('ha-card').addEventListener('click', () => this.handleTap());
   }

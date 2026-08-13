@@ -1,6 +1,6 @@
 # Weather Station Core Card
 
-Version 0.4.6
+Version 0.5.1
 
 A dependency-free Home Assistant Lovelace card for MQTT-published Weather Station Core insight sensors. Calculations can live in Node-RED; the card only renders the selected sensor.
 
@@ -47,13 +47,17 @@ Recommended inject topics:
 | `wind` | Instantaneous wind speed, for wind chill |
 | `wind_average` | Average wind speed, for drying conditions |
 | `wind_gust` | Gust speed, for exposure context |
+| `rain_this_week` | Recent weekly rain total |
+| `rain_this_month` | Recent monthly rain total |
+| `forecast_high_24h` | Forecast high, if available |
+| `forecast_low_24h` | Forecast low, if available |
 
 For wind chill use `wind`; for drying-window logic use `wind_average`. `wind_gust` is retained as supporting context. The flow uses `rain_next_60_min` instead of a separate rain-likelihood sensor.
 
-The flow derives the seven insight states, publishes MQTT discovery and retained state messages, and groups all entities under one Weather Station Core device. It also subscribes to `homeassistant/status`; when the payload is `online`, it republishes the cached discovery and state messages so entities return after a Home Assistant restart.
+The flow derives eleven insight states, publishes MQTT discovery and retained state messages, and groups all entities under one Weather Station Core device. The added correlations are spray/lawn-care decision, irrigation need, fire risk, and forecast quality/meta. It also subscribes to `homeassistant/status`; when the payload is `online`, it republishes the cached discovery and state messages so entities return after a Home Assistant restart.
 
 The card is intentionally content-only, so you can place your own heading outside it. Insight panels automatically flow into as many columns as the card width allows.
 
 In the Home Assistant Sections layout, the card defaults to 6 of 12 columns, supports resizing from 3 to 12 columns, and requests automatic height.
 
-If Home Assistant still shows an older card after updating, reload the dashboard resources or add a version query to the resource URL, for example `weather-card.js?v=0.4.1`.
+If Home Assistant still shows an older card after updating, reload the dashboard resources or add a version query to the resource URL, for example `weather-card.js?v=0.5.0`.
