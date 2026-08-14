@@ -1,4 +1,4 @@
-const WS_CORE_CARD_VERSION = '0.5.1';
+const WS_CORE_CARD_VERSION = '0.5.2';
 
 class WsCoreCard extends HTMLElement {
   setConfig(config) {
@@ -9,6 +9,17 @@ class WsCoreCard extends HTMLElement {
   }
 
   set hass(hass) { this._hass = hass; if (this.config) this.render(); }
+  connectedCallback() {
+    this.bindTap();
+  }
+  bindTap() {
+    if (this._tapBound) return;
+    this._tapBound = true;
+    this.addEventListener('pointerup', event => {
+      if (event.button !== 0 || !event.composedPath().some(node => node?.tagName === 'HA-CARD')) return;
+      this.handleTap(event);
+    }, { capture: true });
+  }
   getCardSize() { return 2; }
   getGridOptions() { return { auto_height: true, columns: 6, min_columns: 3, max_columns: 12 }; }
 
@@ -18,6 +29,7 @@ class WsCoreCard extends HTMLElement {
 
   render() {
     if (!this.shadowRoot) return;
+    this.bindTap();
     const state = this._hass?.states?.[this.config.entity];
     const attributes = state?.attributes || {};
     const unavailable = !state || ['unknown', 'unavailable'].includes(state.state);
@@ -32,10 +44,11 @@ class WsCoreCard extends HTMLElement {
       ${explanation ? `<div class="explanation">${this.esc(explanation)}</div>` : ''}
       ${confidence !== undefined && confidence !== null && !this.config.entity.includes('data_confidence') && !this.config.entity.includes('forecast_quality') ? `<div class="confidence">Confidence ${this.esc(confidence)}${String(confidence).includes('%') ? '' : '%'}</div>` : ''}
     </div></ha-card>`;
-    this.shadowRoot.querySelector('ha-card').addEventListener('click', () => this.handleTap());
   }
 
-  handleTap() {
+  handleTap(event) {
+    event?.preventDefault();
+    event?.stopPropagation();
     const action = this.config.tap_action || { action: 'more-info' };
     if (action.action === 'none') return;
     if (action.action === 'url' && action.url_path) { window.open(action.url_path, '_blank', 'noopener'); return; }
